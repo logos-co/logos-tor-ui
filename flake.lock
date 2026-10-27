@@ -9682,11 +9682,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793125142,
-        "narHash": "sha256-6wCWOY89POswB9derweSl8b3vVbm681F58MjItO7Yt4=",
+        "lastModified": 1793128043,
+        "narHash": "sha256-qZFMouaoABy+B69Qb9Tm16YwLgROEYKc6WgcpZLSxVI=",
         "owner": "logos-co",
         "repo": "logos-tor-module",
-        "rev": "507251e17d56d8e86539cb5d614cb8b593464209",
+        "rev": "a3e84ca4322003417c9e29c396a0a62339aabd4e",
         "type": "github"
       },
       "original": {

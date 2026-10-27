@@ -18,6 +18,9 @@ Item {
     readonly property string torState: ready ? backend.state : "unavailable"
     readonly property bool busy: ready && backend.busy
     readonly property int progress: Number(st.progress) || 0
+    // What Arti judges is in the way: offline, filtering, clock, cantReachTor or directory.
+    readonly property string blockage: root.st.blockage || ""
+    readonly property bool slow: root.torState === "connecting" && root.blockage === "directory"
     property bool advancedOpen: false
 
     // The SOCKS port, for programs outside Logos: off unless the user turns it on.
@@ -76,11 +79,27 @@ Item {
     function headline(s) {
         if (s === "idle") return "Tor is off: no app set to use it has asked for it. Nothing connects to the Tor network until one does."
         if (s === "ready") return "Apps set to use Tor reach their servers through it."
-        if (s === "connecting") return "Joining the Tor network. Connections wait until it is done."
+        if (s === "connecting") return "Joining the Tor network" + (root.slow ? ", slowly" : "") + ". Connections wait until it is done."
         if (s === "blocked") return "Tor is not getting through."
         if (s === "failed") return "Tor is not running. Apps set to use it have no connection."
         if (s === "unavailable") return "The Tor module is not loaded, so apps set to use it have no connection."
         return "Checking Tor…"
+    }
+    function blockedTitle(kind) {
+        if (kind === "offline") return "This computer seems to be offline"
+        if (kind === "filtering") return "This network seems to block Tor"
+        if (kind === "clock") return "This computer's clock is off"
+        if (kind === "directory") return "Tor's directory is not coming through"
+        return "Tor cannot reach its network"
+    }
+    function blockedMessage(kind) {
+        const below = "see \"If Tor is blocked where you are\" below."
+        if (kind === "offline") return "Tor cannot open a connection to any relay. Check the network connection: Tor keeps trying, and Reconnect tries now."
+        if (kind === "filtering") return "Connections open, but no Tor handshake completes: something on the way filters Tor. To get around it, " + below
+        if (kind === "clock") return "Tor checks relays' certificates and its directory against the clock. Set the clock right, then Reconnect."
+        if (kind === "directory") return "Its downloads keep failing. A very slow or unsteady connection can do this, and so can a network that "
+                                         + "interferes with Tor. Tor keeps trying, and Reconnect tries now. If it stays like this, " + below
+        return "Check that this computer is online. If it is, this network may block Tor: " + below
     }
     function fmtBytes(n) {
         if (n === undefined || n === null || n < 0) return "—"
@@ -194,9 +213,17 @@ Item {
                         Layout.fillWidth: true
                         severity: LogosNotice.Warning
                         shown: root.torState === "blocked"
-                        title: "Tor has made no progress for a while"
-                        message: "Check that this computer is online. If it is, this network may block Tor: see "
-                                 + "\"If Tor is blocked where you are\" below."
+                        title: root.blockedTitle(root.blockage)
+                        message: root.blockedMessage(root.blockage)
+                    }
+                    LogosNotice {
+                        objectName: "slowNotice"
+                        Layout.fillWidth: true
+                        severity: LogosNotice.Info
+                        shown: root.slow
+                        title: "Slow going"
+                        message: "Tor's view of the network is downloading slowly, and its downloads keep running out of time. On "
+                                 + "a slow connection the first join can take a few minutes; Tor keeps trying by itself."
                     }
                     LogosNotice {
                         objectName: "failedNotice"
