@@ -14,6 +14,7 @@ public:
 
     void reconnect() override;
     void forgetData() override;
+    void setSocks(bool enabled, QString address) override;
     void refresh() override;
 
 protected:
@@ -21,6 +22,7 @@ protected:
 
 private:
     void poll();
+    void loadSettings();
     void applyStatus(const QString& payload);
     void restart(bool forget);
 

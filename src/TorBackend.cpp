@@ -32,7 +32,27 @@ void TorBackend::onContextReady() {
     m_poll->setInterval(kPollMs);
     connect(m_poll, &QTimer::timeout, this, [this] { poll(); });
     m_poll->start();
+    loadSettings();
     poll();
+}
+
+void TorBackend::loadSettings() {
+    if (!isContextReady()) return;
+    modules().tor_module.settingsAsyncResult([this](logos::AsyncResult<QString> r) {
+        if (r.ok() && parse(r.value).value("ok").toBool()) setSettingsJson(r.value);
+    });
+}
+
+void TorBackend::setSocks(bool enabled, QString address) {
+    if (!isContextReady()) return;
+    setLastError({});
+    modules().tor_module.set_socksAsyncResult(enabled, address, [this](logos::AsyncResult<QString> r) {
+        if (!r.ok()) { setLastError(describe(r.error)); return; }
+        const QJsonObject o = parse(r.value);
+        if (o.value("ok").toBool()) setSettingsJson(r.value);
+        else setLastError(describe(o.value("error").toString()));
+        poll();
+    });
 }
 
 void TorBackend::applyStatus(const QString& payload) {
@@ -89,4 +109,7 @@ void TorBackend::reconnect() { restart(false); }
 
 void TorBackend::forgetData() { restart(true); }
 
-void TorBackend::refresh() { poll(); }
+void TorBackend::refresh() {
+    loadSettings();
+    poll();
+}

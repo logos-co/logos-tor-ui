@@ -15,22 +15,27 @@ nix build .#lgx
   network, or a network that blocks Tor) or Failed, in Arti's own words, and how long the
   last join took. **Reconnect** stops Tor and joins again on the same SOCKS port, so the
   apps keep their proxy; on an idle Tor it reads **Start**.
-- **Apps using Tor:** the modules that asked `tor_module` for its status in the last 90 s.
-  An app set to use the built-in Tor asks every few seconds; one set to skip Tor, or to
-  use the user's own, does not.
-- **Since Tor started:** what the apps sent and received through Tor, the connections it
-  opened, Tor's files on disk and its memory.
+- **Apps using Tor:** the modules that made a request or asked `tor_module` for its status in
+  the last 90 s, with what each received. Logos apps reach Tor over IPC, so it knows which app
+  asks; one set to skip Tor, or to use the user's own, does not ask.
+- **Since Tor started:** what apps, and programs on the SOCKS port, sent and received through
+  Tor, the connections it opened, Tor's files on disk and its memory.
 - **What Tor hides, and what it doesn't**, and **if Tor is blocked where you are**: the
   privacy text behind two info buttons. Until bridges come to this app, a blocked user is
   sent to Tor Browser's bridges, used as each wallet's own Tor.
-- **Advanced:** the SOCKS port (any program on this computer can use it, as with a system
-  Tor), **Forget Tor's data** behind a confirmation (new entry guards and a fresh
-  directory: it fixes a join stuck on guards that stopped answering, and is no routine
-  step), and Tor's log, kept in memory only.
+- **Advanced:**
+  - **SOCKS port for other programs:** off. Logos apps do not need it. Turning it on goes
+    through a warning: any program on this computer can use it without a password, and on
+    an address other than loopback, any computer that reaches it. It listens at
+    `127.0.0.1:9250` unless the user names another IP and port, and stays put through a
+    Reconnect.
+  - **Forget Tor's data** behind a confirmation: new entry guards and a fresh directory. It
+    fixes a join stuck on guards that stopped answering, and is no routine step.
+  - Tor's log, kept in memory only.
 
-The view polls `status()`, `usage()` and `log_tail()` every 2 s and applies
-`status_changed` as it arrives. `tor_module` answers `usage()`, `log_tail()`,
-`reconnect()` and `forget_data()` to this app only.
+The view polls `status()`, `usage()`, `settings()` and `log_tail()` every 2 s and applies
+`status_changed` as it arrives. `tor_module` answers `usage()`, `settings()`,
+`set_socks()`, `log_tail()`, `reconnect()` and `forget_data()` to this app only.
 
 ## Intents
 

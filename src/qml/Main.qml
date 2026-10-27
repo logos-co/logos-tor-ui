@@ -20,6 +20,12 @@ Item {
     readonly property int progress: Number(st.progress) || 0
     property bool advancedOpen: false
 
+    // The SOCKS port, for programs outside Logos: off unless the user turns it on.
+    readonly property var socks: ready ? j(backend.settingsJson, ({})).socks || null : null
+    readonly property string socksListening: root.socks && root.socks.listening ? root.socks.listening : ""
+    readonly property bool socksOpen: root.socksListening !== ""
+    function loopbackAddress(a) { return /^(127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]):\d+$/.test(String(a || "").trim()) }
+
     // Read by the doc-test, and true statements about this run besides.
     readonly property bool usageRead: root.usage !== null
     readonly property int appCount: root.apps.length
@@ -87,7 +93,8 @@ Item {
     // The modules that follow Tor, by what the user knows them as.
     readonly property var appNames: ({ zcash_node_module: "Zcash wallet" })
     function appName(m) { return root.appNames[m] || m }
-    readonly property var apps: root.usage && root.usage.apps ? root.usage.apps : []
+    // The modules seen in the last 90 s; usage() also lists those seen earlier, for their traffic.
+    readonly property var apps: root.usage && root.usage.apps ? root.usage.apps.filter(function (a) { return a.active }) : []
     function sinceLine() {
         if (root.torState !== "ready") return ""
         const t = "Ready since " + root.fmtClock(Number(root.st.since))
@@ -241,7 +248,11 @@ Item {
                             Layout.fillWidth: true
                             LogosText { objectName: "app_" + modelData.module; textFormat: Text.PlainText; text: root.appName(modelData.module) }
                             Item { Layout.fillWidth: true }
-                            LogosText { textFormat: Text.PlainText; color: Theme.palette.textTertiary; text: "asked " + root.ago(modelData.seenAt) }
+                            LogosText {
+                                textFormat: Text.PlainText
+                                color: Theme.palette.textTertiary
+                                text: (modelData.requests > 0 ? root.fmtBytes(modelData.received) + " received · " : "") + "asked " + root.ago(modelData.seenAt)
+                            }
                         }
                     }
                     LogosText {
@@ -256,7 +267,7 @@ Item {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         color: Theme.palette.textTertiary
-                        text: "An app set to use this Tor asks it how it is doing every few seconds; one set to skip Tor, or to use your own, does not."
+                        text: "Logos apps reach this Tor over IPC, so it knows which app asks. An app set to skip Tor, or to use your own, does not ask."
                     }
                 }
             }
@@ -317,7 +328,7 @@ Item {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         color: Theme.palette.textTertiary
-                        text: "What the apps sent and received through Tor. Tor's own traffic, keeping its view of the network current, is not counted."
+                        text: "What apps, and programs on the SOCKS port, sent and received through Tor. Tor's own traffic, keeping its view of the network current, is not counted."
                     }
                 }
             }
@@ -412,20 +423,68 @@ Item {
                     padding: Theme.spacing.large
 
                     contentItem: ColumnLayout {
-                        spacing: 6
-                        LogosText { text: "SOCKS port"; font.weight: Theme.typography.weightBold }
-                        LogosCopyableText {
-                            objectName: "socksText"
-                            Layout.fillWidth: true
-                            text: root.st.socks || "—"
-                            showCopyButton: !!root.st.socks
-                        }
+                        spacing: 8
+                        LogosText { text: "SOCKS port for other programs"; font.weight: Theme.typography.weightBold }
                         LogosText {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
-                            color: Theme.palette.textTertiary
-                            text: "Programs on this computer can use it too, without a password, as with a system Tor. It stays the same "
-                                  + "until Logos starts the Tor module again."
+                            color: Theme.palette.textSecondary
+                            text: (root.socksOpen ? "On, for programs outside Logos. " : "Off. ")
+                                  + "Logos apps reach Tor over IPC and do not need it. It is for a program outside Logos that takes a "
+                                  + "SOCKS proxy, such as a browser."
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 12
+                            LogosSwitch {
+                                objectName: "socksSwitch"
+                                text: "Open the port"
+                                checkable: false
+                                checked: root.socksOpen
+                                enabled: root.ready && root.socks !== null
+                                onClicked: {
+                                    if (root.socksOpen) backend.setSocks(false, socksField.text.trim())
+                                    else socksDialog.open()
+                                }
+                            }
+                            LogosTextField {
+                                id: socksField
+                                objectName: "socksField"
+                                Layout.fillWidth: true
+                                placeholderText: "127.0.0.1:9250"
+                                text: root.socks ? root.socks.address : ""
+                            }
+                            LogosButton {
+                                objectName: "socksApplyButton"
+                                text: "Move it"
+                                visible: root.socksOpen
+                                enabled: socksField.text.trim() !== "" && socksField.text.trim() !== (root.socks ? root.socks.address : "")
+                                onClicked: backend.setSocks(true, socksField.text.trim())
+                            }
+                        }
+                        LogosCopyableText {
+                            objectName: "socksText"
+                            Layout.fillWidth: true
+                            visible: root.socksOpen
+                            text: root.socksListening
+                        }
+                        LogosText {
+                            objectName: "socksError"
+                            Layout.fillWidth: true
+                            visible: text !== ""
+                            wrapMode: Text.Wrap
+                            textFormat: Text.PlainText
+                            color: Theme.palette.error
+                            text: root.socks && root.socks.error ? root.socks.error : ""
+                        }
+                        LogosText {
+                            Layout.fillWidth: true
+                            visible: root.socksOpen
+                            wrapMode: Text.Wrap
+                            color: root.loopbackAddress(root.socks ? root.socks.address : "") ? Theme.palette.textTertiary : Theme.palette.warning
+                            text: root.loopbackAddress(root.socks ? root.socks.address : "")
+                                  ? "Any program on this computer can use it, without a password, as with a system Tor."
+                                  : "Any program on this computer, and any computer that reaches this address, can use your Tor without a password."
                         }
                     }
                 }
@@ -491,6 +550,27 @@ Item {
                 }
             }
         }
+    }
+
+    LogosWarningDialog {
+        id: socksDialog
+        objectName: "socksDialog"
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 40, 560)
+        title: "Open a SOCKS port?"
+        message: "Programs outside Logos can then send their traffic through your Tor at "
+                 + (socksField.text.trim() || "127.0.0.1:9250") + ". It needs no password: any program on this computer can use "
+                 + "it" + (root.loopbackAddress(socksField.text) ? "" : ", and so can any computer that reaches this address")
+                 + ".\n\nLogos apps do not need it: they reach Tor over IPC, and Tor tells each of them apart. A program "
+                 + "on the port is known to Tor only by its SOCKS password, if it sends one."
+        leftActions: [ LogosButton { text: "Cancel"; onClicked: socksDialog.close() } ]
+        rightActions: [
+            LogosButton {
+                objectName: "socksConfirmButton"
+                text: "Open the port"
+                onClicked: { socksDialog.close(); backend.setSocks(true, socksField.text.trim() || "127.0.0.1:9250") }
+            }
+        ]
     }
 
     LogosWarningDialog {

@@ -7,10 +7,12 @@ class TorBackend
     PROP(QString statusJson READONLY)  // status(), or the last statusChanged payload
     PROP(QString usageJson READONLY)   // usage(); "" until read
     PROP(QString logJson READONLY)     // log_tail()'s entries, a JSON array
+    PROP(QString settingsJson READONLY) // settings(): the SOCKS port; "" until read
     PROP(QString lastError READONLY)
     PROP(bool busy READONLY)           // a reconnect or a forget in flight
 
     SLOT(void reconnect())
     SLOT(void forgetData())
+    SLOT(void setSocks(bool enabled, QString address))
     SLOT(void refresh())
 }
