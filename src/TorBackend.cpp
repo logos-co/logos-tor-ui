@@ -64,6 +64,8 @@ void TorBackend::applyStatus(const QString& payload) {
 
 void TorBackend::poll() {
     if (!isContextReady()) return;
+    // Polled too, so a first read made before tor_module answered is not the last.
+    if (settingsJson().isEmpty()) loadSettings();
     modules().tor_module.statusAsyncResult([this](logos::AsyncResult<QString> r) {
         if (!r.ok()) { setState(QStringLiteral("unavailable")); return; }
         const QJsonObject o = parse(r.value);

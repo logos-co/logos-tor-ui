@@ -24,6 +24,13 @@ Item {
     readonly property var socks: ready ? j(backend.settingsJson, ({})).socks || null : null
     readonly property string socksListening: root.socks && root.socks.listening ? root.socks.listening : ""
     readonly property bool socksOpen: root.socksListening !== ""
+    // What the switch and the button do; the doc-test calls them, since a click misses a
+    // control scrolled out of view.
+    function toggleSocks() {
+        if (root.socksOpen) backend.setSocks(false, socksField.text.trim())
+        else socksDialog.open()
+    }
+    function askToForget() { forgetDialog.open() }
     function loopbackAddress(a) { return /^(127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]):\d+$/.test(String(a || "").trim()) }
 
     // Read by the doc-test, and true statements about this run besides.
@@ -442,10 +449,7 @@ Item {
                                 checkable: false
                                 checked: root.socksOpen
                                 enabled: root.ready && root.socks !== null
-                                onClicked: {
-                                    if (root.socksOpen) backend.setSocks(false, socksField.text.trim())
-                                    else socksDialog.open()
-                                }
+                                onClicked: root.toggleSocks()
                             }
                             LogosTextField {
                                 id: socksField
@@ -510,7 +514,7 @@ Item {
                             objectName: "forgetButton"
                             text: "Forget Tor's data…"
                             enabled: root.ready && !root.busy && root.torState !== "unavailable" && root.torState !== ""
-                            onClicked: forgetDialog.open()
+                            onClicked: root.askToForget()
                         }
                     }
                 }

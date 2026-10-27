@@ -110,9 +110,13 @@ sections:
               value: true
               timeout: 30000
 
+            # Advanced sits below the fold, where a synthesized click lands on nothing: the steps
+            # there call what its controls call, and click only the dialogs, which open centred.
             - name: "Show advanced"
-              action: click_object
-              find_value: "advancedLink"
+              action: set_property
+              find_value: "torRoot"
+              property: "advancedOpen"
+              value: true
             - name: "The SOCKS port is off: Logos apps reach Tor over IPC"
               action: expect_property
               find_value: "torRoot"
@@ -125,8 +129,10 @@ sections:
               find_value: "socksField"
               value: "127.0.0.1:0"
             - name: "Turn the port on"
-              action: click_object
-              find_value: "socksSwitch"
+              action: call_method
+              find_value: "torRoot"
+              method: "toggleSocks"
+              args: []
             - name: "The app says who could use it before it opens"
               action: expect_property
               find_value: "socksDialog"
@@ -160,8 +166,10 @@ sections:
               value: 0
 
             - name: "Forget Tor's data"
-              action: click_object
-              find_value: "forgetButton"
+              action: call_method
+              find_value: "torRoot"
+              method: "askToForget"
+              args: []
             - name: "The app says what forgetting costs before it does anything"
               action: expect_property
               find_value: "forgetDialog"
@@ -185,8 +193,10 @@ sections:
               value: 0
               screenshot: "tor-ui-advanced.png"
             - name: "Close the port"
-              action: click_object
-              find_value: "socksSwitch"
+              action: call_method
+              find_value: "torRoot"
+              method: "toggleSocks"
+              args: []
             - name: "It is off again"
               action: expect_property
               find_value: "torRoot"
