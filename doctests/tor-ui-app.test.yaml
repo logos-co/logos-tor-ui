@@ -57,36 +57,6 @@ sections:
   - title: "Drive the app"
     platform: [linux, macos, windows]
     steps:
-      - title: "TEMP: what Arti reports on Windows while it joins"
-        platform: [windows]
-        ui_test:
-          launch: "env QT_FORCE_STDERR_LOGGING=1 QML_INSPECTOR_PORT=3768 LOGOS_NO_SCHEME_REGISTER=1 ./result-basecamp/bin/LogosBasecamp{exe} --module ./result-app --modules-dir ./tree/modules --user-dir ./userdir"
-          qt_mcp: "result-mcp"
-          launch_timeout: 600
-          tests:
-            - name: "Idle"
-              action: expect_property
-              find_value: "torRoot"
-              property: "torState"
-              value: "idle"
-              timeout: 60000
-            - name: "Start Tor"
-              action: click_object
-              find_value: "reconnectButton"
-            - name: "Two minutes in"
-              action: sleep
-              ms: 120000
-            - name: "Show advanced"
-              action: set_property
-              find_value: "torRoot"
-              property: "advancedOpen"
-              value: true
-              screenshot: "tor-ui-windows-joining.png"
-            - name: "Print the log: fails on purpose"
-              action: expect_property
-              find_value: "torRoot"
-              property: "logText"
-              value: "diagnostic"
       - title: "Start Tor, reconnect, and forget its data"
         ui_test:
           # LOGOS_NO_SCHEME_REGISTER: a test run leaves the machine's logos:// handler alone.
