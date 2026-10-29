@@ -1,0 +1,27 @@
+{
+  "name": "tor_ui",
+  "display_name": "Tor",
+  "version": "0.1.0",
+  "type": "ui_qml",
+  "interface": "universal",
+  "category": "network",
+  "description": "Manage the Tor that comes with Logos: whether it works and why not, which apps use it, what it carried and what it costs, Reconnect, Forget Tor's data, its log, and what Tor hides and what it does not.",
+  "author": "Logos Core Team",
+  "main": "tor_ui_plugin",
+  "icon": "src/icons/tor.png",
+  "view": "qml/Main.qml",
+  "dependencies": ["tor_module"],
+  "provides": [
+    { "intent": "tor.manage", "handoff": true }
+  ],
+  "codegen": {
+    "rep": "src/TorBackend.rep",
+    "backend_class": "TorBackend",
+    "backend_header": "TorBackend.h"
+  },
+  "nix": {
+    "packages": { "build": [], "runtime": ["qt6.qtdeclarative"] },
+    "external_libraries": [],
+    "cmake": { "find_packages": [], "extra_sources": [] }
+  }
+}

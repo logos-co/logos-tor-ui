@@ -1,0 +1,210 @@
+name: tor_ui — the Tor app in Basecamp, against the real Tor network
+project_name: logos-tor-ui
+
+# Every build is a flake URL rather than `path:..`: the harness runs each step in a throwaway
+# working directory, not in the checkout. CI pins {release} to the commit under test with
+# --release-for. The host is Basecamp in standalone mode: `--module` opens this app, and
+# `--modules-dir` holds tor_module, the one module it depends on.
+#
+# The run joins the real Tor network twice, once from scratch (about 7 MB each). Closing the
+# app at the end unloads tor_module, which stops Tor.
+#
+# On Windows the nix steps do not run: logos-windows-ci cross-builds the same outputs on Linux
+# (Basecamp's app-standalone-portable, the modules' install-portable) and stages each under the
+# name the Unix step gives its out-link. Every other step is the same on all three.
+
+intro: |
+  The Tor app with the Tor module behind it, in Basecamp. With no app asking for Tor, Tor stays
+  idle and makes no connection. Start joins the Tor network. The SOCKS port for programs outside
+  Logos opens only after a warning, and stays put through Reconnect, which joins again, and
+  Forget Tor's data, which deletes Tor's entry guards and directory and joins from scratch.
+
+sections:
+  - title: "Build Basecamp, the app and the Tor module"
+    steps:
+      - title: "Build Basecamp's standalone host, the app, and tor_module"
+        platform: [linux, macos]
+        run: |
+          set -eu
+          nix build 'github:logos-co/logos-basecamp#app-standalone' --no-write-lock-file -o result-basecamp
+          nix build 'github:logos-co/logos-qt-mcp' --no-write-lock-file -o result-mcp
+          nix build 'github:logos-co/logos-tor-module#install' --no-write-lock-file -o result-tor
+          nix build 'github:logos-co/logos-tor-ui{release}#install' --no-write-lock-file -o result-app
+          ls result-app/plugins
+        code_block: |
+          nix build 'github:logos-co/logos-basecamp#app-standalone' -o result-basecamp
+          nix build 'github:logos-co/logos-qt-mcp' -o result-mcp
+          nix build 'github:logos-co/logos-tor-module#install' -o result-tor
+          nix build 'github:logos-co/logos-tor-ui#install' -o result-app
+        expect_contains: ["tor_ui"]
+      - title: "On Windows, the same builds, cross-built and staged by CI"
+        platform: [windows]
+        run: |
+          set -eu
+          ls result-basecamp/bin/LogosBasecamp.exe result-mcp/test-framework/framework.mjs
+          ls result-app/plugins
+        expect_contains: ["LogosBasecamp.exe", "tor_ui"]
+      - title: "Put tor_module where Basecamp looks for it"
+        platform: [linux, macos, windows]
+        run: |
+          set -eu
+          mkdir -p tree/modules
+          cp -rL result-tor/modules/* tree/modules/
+          chmod -R u+w tree
+          ls tree/modules
+        expect_contains: ["tor_module"]
+
+  - title: "Drive the app"
+    platform: [linux, macos, windows]
+    steps:
+      - title: "Start Tor, reconnect, and forget its data"
+        ui_test:
+          # LOGOS_NO_SCHEME_REGISTER: a test run leaves the machine's logos:// handler alone.
+          launch: "env QT_FORCE_STDERR_LOGGING=1 QML_INSPECTOR_PORT=3768 LOGOS_NO_SCHEME_REGISTER=1 ./result-basecamp/bin/LogosBasecamp{exe} --module ./result-app --modules-dir ./tree/modules --user-dir ./userdir"
+          qt_mcp: "result-mcp"
+          launch_timeout: 600
+          tests:
+            - name: "No app has asked for Tor, so it is idle: loaded, it makes no connection"
+              action: expect_property
+              find_value: "torRoot"
+              property: "torState"
+              value: "idle"
+              timeout: 60000
+            - name: "The app reads Tor's usage, which tor_module answers to it alone"
+              action: expect_property
+              find_value: "torRoot"
+              property: "usageRead"
+              value: true
+              timeout: 30000
+            - name: "No app is listed as using Tor"
+              action: expect_property
+              find_value: "noAppsText"
+              property: "visible"
+              value: true
+              screenshot: "tor-ui-idle.png"
+            - name: "The button reads Start"
+              action: expect_property
+              find_value: "reconnectButton"
+              property: "text"
+              value: "Start"
+            - name: "Start Tor"
+              action: click_object
+              find_value: "reconnectButton"
+            - name: "Tor joins the network"
+              action: expect_property
+              find_value: "torRoot"
+              property: "torState"
+              value: "ready"
+              timeout: 300000
+            - name: "The status says how long the join took"
+              action: expect_property
+              find_value: "sinceText"
+              property: "visible"
+              value: true
+              timeout: 15000
+              screenshot: "tor-ui-ready.png"
+            - name: "Tor's log has entries"
+              action: expect_property
+              find_value: "torRoot"
+              property: "hasLog"
+              value: true
+              timeout: 30000
+
+            # Advanced sits below the fold, where a synthesized click lands on nothing: the steps
+            # there call what its controls call, and click only the dialogs, which open centred.
+            - name: "Show advanced"
+              action: set_property
+              find_value: "torRoot"
+              property: "advancedOpen"
+              value: true
+            - name: "The SOCKS port is off: Logos apps reach Tor over IPC"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksOpen"
+              value: false
+              timeout: 15000
+            - name: "Choose any free port on loopback"
+              action: set_text
+              find_by: "objectName"
+              find_value: "socksField"
+              value: "127.0.0.1:0"
+            - name: "Turn the port on"
+              action: call_method
+              find_value: "torRoot"
+              method: "toggleSocks"
+              args: []
+            - name: "The app says who could use it before it opens"
+              action: expect_property
+              find_value: "socksDialog"
+              property: "visible"
+              value: true
+              timeout: 5000
+              screenshot: "tor-ui-socks.png"
+            - name: "Open it"
+              action: click_object
+              find_value: "socksConfirmButton"
+            - name: "The port listens"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksOpen"
+              value: true
+              timeout: 15000
+
+            - name: "Reconnect"
+              action: click_object
+              find_value: "reconnectButton"
+            - name: "Tor is ready again"
+              action: expect_property
+              find_value: "torRoot"
+              property: "readyCount"
+              value: 2
+              timeout: 300000
+            - name: "...and the SOCKS port did not move"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksChanges"
+              value: 0
+
+            - name: "Forget Tor's data"
+              action: call_method
+              find_value: "torRoot"
+              method: "askToForget"
+              args: []
+            - name: "The app says what forgetting costs before it does anything"
+              action: expect_property
+              find_value: "forgetDialog"
+              property: "visible"
+              value: true
+              timeout: 5000
+              screenshot: "tor-ui-forget.png"
+            - name: "Forget and reconnect"
+              action: click_object
+              find_value: "forgetConfirmButton"
+            - name: "Tor joins again from scratch"
+              action: expect_property
+              find_value: "torRoot"
+              property: "readyCount"
+              value: 3
+              timeout: 300000
+            - name: "...and the SOCKS port still did not move"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksChanges"
+              value: 0
+              screenshot: "tor-ui-advanced.png"
+            - name: "Close the port"
+              action: call_method
+              find_value: "torRoot"
+              method: "toggleSocks"
+              args: []
+            - name: "It is off again"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksOpen"
+              value: false
+              timeout: 15000
+            - name: "No error is shown"
+              action: expect_property
+              find_value: "errorText"
+              property: "visible"
+              value: false

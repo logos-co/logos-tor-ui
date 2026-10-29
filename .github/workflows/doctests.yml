@@ -1,0 +1,106 @@
+name: tor-ui Doc-Tests
+
+# Runs this repo's executable doc-test end to end via the shared `doctest` CLI
+# (github:logos-co/logos-doctest) and uploads the rendered two-column report as an artifact.
+#
+# The spec builds every module it needs from `github:logos-co/<repo>{release}#install`, and
+# --release-for below pins THIS repo's {release} to the commit under test. The harness runs
+# each step in a throwaway working directory, so a spec cannot build the checkout in place.
+#
+# Live dependency: the run joins the real Tor network, twice from scratch.
+#
+# The `windows` job runs the spec's Windows half: logos-windows-ci cross-builds on Linux what the
+# Unix half builds with nix, stages each output under its out-link's name, and runs the rest of
+# the spec on windows-latest. Its report uploads as doctest-report-windows-latest.
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: doctests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  doctests:
+    name: tor-ui doc-tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    # ATTIC_TOKEN_PUBLIC only exists in the public-cache environment; master jobs must opt into
+    # it to publish to the public cache.
+    environment: ${{ github.ref == 'refs/heads/master' && 'public-cache' || '' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix and set up the shared cache
+        uses: logos-co/setup-nix-cache-action@v1
+        with:
+          attic-token-ci: ${{ secrets.ATTIC_TOKEN_CI }}
+          attic-token-public: ${{ secrets.ATTIC_TOKEN_PUBLIC }}
+
+      # The standalone host links against system OpenGL; a bare runner has neither, and the app
+      # dies with "libOpenGL.so.0: cannot open shared object file" before it can open the
+      # inspector port. Nix supplies Qt but not the GL loader.
+      - name: Install GL libraries (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libopengl0 libglx0 libgl1 libegl1
+
+      # The commit under test. For PRs it is the head commit, so the spec's {release} resolves
+      # to THIS PR's code rather than master. A fork's head is not in this repo, so blank it and
+      # let the run fall back to master.
+      - name: Resolve commit under test
+        id: commit
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && \
+             [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.pull_request.head.sha || github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run doc-tests
+        run: |
+          nix run github:logos-co/logos-doctest -- run \
+            doctests/tor-ui-app.test.yaml \
+            --verbose \
+            --continue-on-fail \
+            --release-for logos-tor-ui=${{ steps.commit.outputs.sha }} \
+            --report "${{ runner.temp }}/doctest-report.html"
+
+      - name: Upload execution report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctest-report-${{ matrix.os }}
+          path: ${{ runner.temp }}/doctest-report.html
+          if-no-files-found: warn
+
+  windows:
+    name: tor-ui doc-tests (windows-latest)
+    uses: logos-co/logos-windows-ci/.github/workflows/windows-ci.yml@v1
+    secrets: inherit
+    with:
+      targets: default
+      extra-targets: >-
+        {"result-app": {"ref": ".#packages.x86_64-windows.install-portable"},
+         "result-basecamp": {"ref": "github:logos-co/logos-basecamp#packages.x86_64-windows.app-standalone-portable"},
+         "result-mcp": {"ref": "github:logos-co/logos-qt-mcp#packages.x86_64-linux.default"},
+         "result-tor": {"ref": "github:logos-co/logos-tor-module#packages.x86_64-windows.install-portable"}}
+      # The modules import Qt and GCC's runtime from Basecamp's bin/, as they do at runtime.
+      assemble: >-
+        {"result-app": ["result-basecamp/bin"], "result-tor": ["result-basecamp/bin"]}
+      doctest-spec: doctests/tor-ui-app.test.yaml
+      doctest-artifact: doctest-report
+      # tor_module's Arti graph planned 374 derivations on a cold cache on its own (2026-10-27).
+      cold-derivation-budget: 700
+      timeout-minutes: 90
