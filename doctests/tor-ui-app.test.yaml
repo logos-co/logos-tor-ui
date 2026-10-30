@@ -15,9 +15,10 @@ project_name: logos-tor-ui
 
 intro: |
   The Tor app with the Tor module behind it, in Basecamp. With no app asking for Tor, Tor stays
-  idle and makes no connection. Start joins the Tor network. The SOCKS port for programs outside
-  Logos opens only after a warning, and stays put through Reconnect, which joins again, and
-  Forget Tor's data, which deletes Tor's entry guards and directory and joins from scratch.
+  idle and makes no connection. Start joins the Tor network. The SOCKS port, which the Bitcoin
+  wallet connects through, is on from the start and stays put through Reconnect, which joins
+  again, and Forget Tor's data, which deletes Tor's entry guards and directory and joins from
+  scratch. It closes, and opens again, only after a warning.
 
 sections:
   - title: "Build Basecamp, the app and the Tor module"
@@ -28,7 +29,8 @@ sections:
           set -eu
           nix build 'github:logos-co/logos-basecamp#app-standalone' --no-write-lock-file -o result-basecamp
           nix build 'github:logos-co/logos-qt-mcp' --no-write-lock-file -o result-mcp
-          nix build 'github:logos-co/logos-tor-module#install' --no-write-lock-file -o result-tor
+          # Until logos-co/logos-tor-module#5 merges: its SOCKS port on by default. Back to master then.
+          nix build 'github:logos-co/logos-tor-module/feat/socks-on-by-default#install' --no-write-lock-file -o result-tor
           nix build 'github:logos-co/logos-tor-ui{release}#install' --no-write-lock-file -o result-app
           ls result-app/plugins
         code_block: |
@@ -117,33 +119,7 @@ sections:
               find_value: "torRoot"
               property: "advancedOpen"
               value: true
-            - name: "The SOCKS port is off: Logos apps reach Tor over IPC"
-              action: expect_property
-              find_value: "torRoot"
-              property: "socksOpen"
-              value: false
-              timeout: 15000
-            - name: "Choose any free port on loopback"
-              action: set_text
-              find_by: "objectName"
-              find_value: "socksField"
-              value: "127.0.0.1:0"
-            - name: "Turn the port on"
-              action: call_method
-              find_value: "torRoot"
-              method: "toggleSocks"
-              args: []
-            - name: "The app says who could use it before it opens"
-              action: expect_property
-              find_value: "socksDialog"
-              property: "visible"
-              value: true
-              timeout: 5000
-              screenshot: "tor-ui-socks.png"
-            - name: "Open it"
-              action: click_object
-              find_value: "socksConfirmButton"
-            - name: "The port listens"
+            - name: "The SOCKS port is on: the Bitcoin wallet connects through it"
               action: expect_property
               find_value: "torRoot"
               property: "socksOpen"
@@ -197,11 +173,47 @@ sections:
               find_value: "torRoot"
               method: "toggleSocks"
               args: []
-            - name: "It is off again"
+            - name: "The app says what closing it breaks before it does"
+              action: expect_property
+              find_value: "socksOffDialog"
+              property: "visible"
+              value: true
+              timeout: 5000
+              screenshot: "tor-ui-socks-off.png"
+            - name: "Close it"
+              action: click_object
+              find_value: "socksOffConfirmButton"
+            - name: "It is off"
               action: expect_property
               find_value: "torRoot"
               property: "socksOpen"
               value: false
+              timeout: 15000
+            - name: "Choose any free port on loopback"
+              action: set_text
+              find_by: "objectName"
+              find_value: "socksField"
+              value: "127.0.0.1:0"
+            - name: "Turn it on again"
+              action: call_method
+              find_value: "torRoot"
+              method: "toggleSocks"
+              args: []
+            - name: "The app says who could use it before it opens"
+              action: expect_property
+              find_value: "socksDialog"
+              property: "visible"
+              value: true
+              timeout: 5000
+              screenshot: "tor-ui-socks.png"
+            - name: "Open it"
+              action: click_object
+              find_value: "socksConfirmButton"
+            - name: "The port listens"
+              action: expect_property
+              find_value: "torRoot"
+              property: "socksOpen"
+              value: true
               timeout: 15000
             - name: "No error is shown"
               action: expect_property

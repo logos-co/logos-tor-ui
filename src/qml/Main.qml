@@ -23,14 +23,14 @@ Item {
     readonly property bool slow: root.torState === "connecting" && root.blockage === "directory"
     property bool advancedOpen: false
 
-    // The SOCKS port, for programs outside Logos: off unless the user turns it on.
+    // The SOCKS port: on by default, since the Bitcoin wallet's connections go through it.
     readonly property var socks: ready ? j(backend.settingsJson, ({})).socks || null : null
     readonly property string socksListening: root.socks && root.socks.listening ? root.socks.listening : ""
     readonly property bool socksOpen: root.socksListening !== ""
     // What the switch and the button do; the doc-test calls them, since a click misses a
     // control scrolled out of view.
     function toggleSocks() {
-        if (root.socksOpen) backend.setSocks(false, socksField.text.trim())
+        if (root.socksOpen) socksOffDialog.open()
         else socksDialog.open()
     }
     function askToForget() { forgetDialog.open() }
@@ -117,7 +117,11 @@ Item {
         return s < 60 ? s + " s ago" : Math.floor(s / 60) + " min ago"
     }
     // The modules that follow Tor, by what the user knows them as.
-    readonly property var appNames: ({ zcash_node_module: "Zcash wallet" })
+    readonly property var appNames: ({
+        zcash_wallet_core_module: "Zcash wallet",
+        zcash_node_module: "Zcash wallet's server checks",
+        bitcoin_node_module: "Bitcoin wallet's source checks"
+    })
     function appName(m) { return root.appNames[m] || m }
     // The modules seen in the last 90 s; usage() also lists those seen earlier, for their traffic.
     readonly property var apps: root.usage && root.usage.apps ? root.usage.apps.filter(function (a) { return a.active }) : []
@@ -362,7 +366,7 @@ Item {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         color: Theme.palette.textTertiary
-                        text: "What apps, and programs on the SOCKS port, sent and received through Tor. Tor's own traffic, keeping its view of the network current, is not counted."
+                        text: "What apps, and the SOCKS port, sent and received through Tor. The SOCKS port counts the Bitcoin wallet's connections and any program outside Logos together. Tor's own traffic, keeping its view of the network current, is not counted."
                     }
                 }
             }
@@ -458,14 +462,15 @@ Item {
 
                     contentItem: ColumnLayout {
                         spacing: 8
-                        LogosText { text: "SOCKS port for other programs"; font.weight: Theme.typography.weightBold }
+                        LogosText { text: "SOCKS port"; font.weight: Theme.typography.weightBold }
                         LogosText {
                             Layout.fillWidth: true
                             wrapMode: Text.Wrap
                             color: Theme.palette.textSecondary
-                            text: (root.socksOpen ? "On, for programs outside Logos. " : "Off. ")
-                                  + "Logos apps reach Tor over IPC and do not need it. It is for a program outside Logos that takes a "
-                                  + "SOCKS proxy, such as a browser."
+                            text: (root.socksOpen ? "On. " : "Off: the Bitcoin wallet cannot reach the sources it sends through Tor. ")
+                                  + "The Bitcoin wallet connects through it: its servers and peers take a SOCKS proxy. Other Logos "
+                                  + "apps reach Tor over IPC. A program outside Logos that takes a SOCKS proxy, such as a browser, "
+                                  + "can use it too."
                         }
                         RowLayout {
                             Layout.fillWidth: true
@@ -592,14 +597,33 @@ Item {
         message: "Programs outside Logos can then send their traffic through your Tor at "
                  + (socksField.text.trim() || "127.0.0.1:9250") + ". It needs no password: any program on this computer can use "
                  + "it" + (root.loopbackAddress(socksField.text) ? "" : ", and so can any computer that reaches this address")
-                 + ".\n\nLogos apps do not need it: they reach Tor over IPC, and Tor tells each of them apart. A program "
-                 + "on the port is known to Tor only by its SOCKS password, if it sends one."
+                 + ".\n\nThe Bitcoin wallet connects through it. Other Logos apps reach Tor over IPC, and Tor tells each of "
+                 + "them apart. A program on the port is known to Tor only by its SOCKS password, if it sends one."
         leftActions: [ LogosButton { text: "Cancel"; onClicked: socksDialog.close() } ]
         rightActions: [
             LogosButton {
                 objectName: "socksConfirmButton"
                 text: "Open the port"
                 onClicked: { socksDialog.close(); backend.setSocks(true, socksField.text.trim() || "127.0.0.1:9250") }
+            }
+        ]
+    }
+
+    LogosWarningDialog {
+        id: socksOffDialog
+        objectName: "socksOffDialog"
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 40, 560)
+        title: "Close the SOCKS port?"
+        message: "The Bitcoin wallet connects through it. Closed, the wallet cannot reach the servers and peers it sends "
+                 + "through Tor, and it never falls back to a direct connection. Programs outside Logos that use the port "
+                 + "lose Tor too.\n\nApps that reach Tor over IPC, such as the Zcash wallet, are not affected."
+        leftActions: [ LogosButton { text: "Cancel"; onClicked: socksOffDialog.close() } ]
+        rightActions: [
+            LogosButton {
+                objectName: "socksOffConfirmButton"
+                text: "Close the port"
+                onClicked: { socksOffDialog.close(); backend.setSocks(false, socksField.text.trim()) }
             }
         ]
     }
