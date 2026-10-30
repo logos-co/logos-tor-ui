@@ -305,7 +305,7 @@ Item {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         color: Theme.palette.textTertiary
-                        text: "Logos apps reach this Tor over IPC, so it knows which app asks. An app set to skip Tor, or to use your own, does not ask."
+                        text: "Logos apps ask this Tor over IPC, so it knows which app asks. What goes through the SOCKS port, such as the Bitcoin wallet's connections, is counted under Since Tor started. An app set to skip Tor, or to use your own, does not ask."
                     }
                 }
             }

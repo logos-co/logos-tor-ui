@@ -16,8 +16,9 @@ nix build .#lgx
   last join took. **Reconnect** stops Tor and joins again on the same SOCKS port, so the
   apps keep their proxy; on an idle Tor it reads **Start**.
 - **Apps using Tor:** the modules that made a request or asked `tor_module` for its status in
-  the last 90 s, with what each received. Logos apps reach Tor over IPC, so it knows which app
-  asks; one set to skip Tor, or to use the user's own, does not ask.
+  the last 90 s, with what each received. Logos apps ask Tor over IPC, so it knows which app
+  asks; what goes through the SOCKS port (the Bitcoin wallet's connections) is counted under
+  **Since Tor started**. An app set to skip Tor, or to use the user's own, does not ask.
 - **Since Tor started:** what apps, and the SOCKS port (the Bitcoin wallet's connections and any
   program outside Logos, counted together), sent and received through
   Tor, the connections it opened, Tor's files on disk and its memory.
