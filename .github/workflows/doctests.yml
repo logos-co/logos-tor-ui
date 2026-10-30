@@ -91,12 +91,11 @@ jobs:
     secrets: inherit
     with:
       targets: default
-      # result-tor: logos-co/logos-tor-module#5's branch (SOCKS port on by default) until it merges.
       extra-targets: >-
         {"result-app": {"ref": ".#packages.x86_64-windows.install-portable"},
          "result-basecamp": {"ref": "github:logos-co/logos-basecamp#packages.x86_64-windows.app-standalone-portable"},
          "result-mcp": {"ref": "github:logos-co/logos-qt-mcp#packages.x86_64-linux.default"},
-         "result-tor": {"ref": "github:logos-co/logos-tor-module/feat/socks-on-by-default#packages.x86_64-windows.install-portable"}}
+         "result-tor": {"ref": "github:logos-co/logos-tor-module#packages.x86_64-windows.install-portable"}}
       # The modules import Qt and GCC's runtime from Basecamp's bin/, as they do at runtime.
       assemble: >-
         {"result-app": ["result-basecamp/bin"], "result-tor": ["result-basecamp/bin"]}

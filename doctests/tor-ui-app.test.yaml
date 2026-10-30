@@ -29,8 +29,7 @@ sections:
           set -eu
           nix build 'github:logos-co/logos-basecamp#app-standalone' --no-write-lock-file -o result-basecamp
           nix build 'github:logos-co/logos-qt-mcp' --no-write-lock-file -o result-mcp
-          # Until logos-co/logos-tor-module#5 merges: its SOCKS port on by default. Back to master then.
-          nix build 'github:logos-co/logos-tor-module/feat/socks-on-by-default#install' --no-write-lock-file -o result-tor
+          nix build 'github:logos-co/logos-tor-module#install' --no-write-lock-file -o result-tor
           nix build 'github:logos-co/logos-tor-ui{release}#install' --no-write-lock-file -o result-app
           ls result-app/plugins
         code_block: |
