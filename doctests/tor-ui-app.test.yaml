@@ -16,7 +16,7 @@ project_name: logos-tor-ui
 intro: |
   The Tor app with the Tor module behind it, in Basecamp. With no app asking for Tor, Tor stays
   idle and makes no connection. Start joins the Tor network. The SOCKS port, which the Bitcoin
-  wallet connects through, is on from the start and stays put through Reconnect, which joins
+  and Monero wallets connect through, is on from the start and stays put through Reconnect, which joins
   again, and Forget Tor's data, which deletes Tor's entry guards and directory and joins from
   scratch. It closes, and opens again, only after a warning.
 
@@ -118,7 +118,7 @@ sections:
               find_value: "torRoot"
               property: "advancedOpen"
               value: true
-            - name: "The SOCKS port is on: the Bitcoin wallet connects through it"
+            - name: "The SOCKS port is on: the Bitcoin and Monero wallets connect through it"
               action: expect_property
               find_value: "torRoot"
               property: "socksOpen"
