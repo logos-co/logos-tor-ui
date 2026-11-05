@@ -1,7 +1,7 @@
 {
   "name": "tor_ui",
   "display_name": "Tor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "ui_qml",
   "interface": "universal",
   "category": "network",
@@ -10,7 +10,9 @@
   "main": "tor_ui_plugin",
   "icon": "src/icons/tor.png",
   "view": "qml/Main.qml",
-  "dependencies": ["tor_module"],
+  "dependencies": [
+    { "name": "tor_module", "version": "~0.2.0" }
+  ],
   "provides": [
     { "intent": "tor.manage", "handoff": true }
   ],
